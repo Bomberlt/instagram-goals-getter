@@ -22,7 +22,7 @@ async function asyncCall() {
         const month = datePart.split('-')[0].padStart(2, '0');
         const day = datePart.split('-')[1];
         const date = `2021-${month}-${day}`;
-        const title = caption.text.substring(date.length + 1);
+        const title = caption.text.substring(datePart.length + 1).split('.')[0];
         return {
             value: title,
             date: date,
