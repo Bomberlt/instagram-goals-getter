@@ -9,9 +9,6 @@ console.log(process.env.MY_SECRET);
 const client = new Instagram({ username: process.env.username, password: process.env.password });
 
 async function asyncCall() {
-    await client.login()
-    
-    const profile = await client.getProfile();
     const photos = await client.getPhotosByUsername({ username: '250pix', first: 250 });
     const nodes = photos.user.edge_owner_to_timeline_media.edges;
     const posts = nodes.map(node => {
@@ -22,7 +19,9 @@ async function asyncCall() {
         const month = datePart.split('-')[0].padStart(2, '0');
         const day = datePart.split('-')[1];
         const date = `2021-${month}-${day}`;
-        const title = caption.text.substring(datePart.length + 1).split('.')[0];
+        const title = caption.text.substring(datePart.length + 1).includes('#')
+            ? `${caption.text.substring(datePart.length + 1).split('.')[0]}.`
+            : caption.text.substring(datePart.length + 1)
         return {
             value: title,
             date: date,
@@ -30,7 +29,6 @@ async function asyncCall() {
             timestamp: node.node.taken_at_timestamp
         }
     });
-    const post1 = posts[0];
     return posts;
   }
 
@@ -46,13 +44,15 @@ async function asyncCall() {
             hideItems: false,
             data: {
                 itemCountToComplete: 250,
-                entries: posts.slice().reverse()
+                entries: posts.slice()
             }
         }]
     };
     res.send(data);
   });
    
-  app.listen(3000, () =>
-    console.log('Example app listening on port 3000!'),
-  );
+  app.listen(3001, () => {
+    console.log('Example app listening on port 3001!');
+    client.login();
+    console.log('Logged in to Instagram');
+  });
