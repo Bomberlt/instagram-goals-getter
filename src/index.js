@@ -1,34 +1,47 @@
 import 'dotenv/config';
-import Instagram from 'instagram-web-api';
+import { IgApiClient } from 'instagram-private-api';
+
 import express from 'express';
  
 console.log('Hello Node.js project.');
  
 console.log(process.env.MY_SECRET);
-
-const client = new Instagram({ username: process.env.username, password: process.env.password });
+const ig = new IgApiClient();
 
 async function asyncCall() {
-    const photos = await client.getPhotosByUsername({ username: '250pix', first: 250 });
-    const nodes = photos.user.edge_owner_to_timeline_media.edges;
-    const posts = nodes.map(node => {
-        const caption = node.node.edge_media_to_caption
-            ? node.node.edge_media_to_caption.edges[0].node
-            : 'no-title'
-        const datePart = caption.text.split(' ')[0];
-        const month = datePart.split('-')[0].padStart(2, '0');
-        const day = datePart.split('-')[1];
-        const date = `2021-${month}-${day}`;
-        const title = caption.text.substring(datePart.length + 1).includes('#')
-            ? `${caption.text.substring(datePart.length + 1).split('.')[0]}.`
-            : caption.text.substring(datePart.length + 1)
-        return {
-            value: title,
-            date: date,
-            imageUrl: node.node.display_url,
-            timestamp: node.node.taken_at_timestamp
-        }
-    });
+    ig.state.generateDevice(process.env.instagram_username);
+    ig.simulate.preLoginFlow();
+    const loggedInUser = await ig.account.login(process.env.instagram_username, process.env.password);
+    process.nextTick(async () => await ig.simulate.postLoginFlow());
+    console.log('Logged in to Instagram');
+
+    // Create UserFeed instance to get loggedInUser's posts
+    const targetUser = await ig.user.searchExact('250pix'); // getting exact user by login
+    const userFeed = ig.feed.user(targetUser.pk);
+    let posts = [];
+    let count = 0;
+    do {
+        const page = await userFeed.items();
+        count = page.length;
+        const pagePosts =page.map(post => {
+            const caption = post.caption.text;
+            const datePart = caption.split(' ')[0];
+            const month = datePart.split('-')[0].padStart(2, '0');
+            const day = datePart.split('-')[1];
+            const date = `2021-${month}-${day}`;
+            const title = caption.substring(datePart.length + 1).includes('#')
+                ? `${caption.substring(datePart.length + 1).split('.')[0]}.`
+                : caption.substring(datePart.length + 1)
+            return {
+                value: title,
+                date: date,
+                imageUrl: post.image_versions2.candidates[0].url,
+                timestamp: post.taken_at
+            }
+        });
+        posts = posts.concat(pagePosts);
+    } while (count === 18);
+    console.log(posts);
     return posts;
   }
 
@@ -51,8 +64,6 @@ async function asyncCall() {
     res.send(data);
   });
    
-  app.listen(3001, () => {
-    console.log('Example app listening on port 3001!');
-    client.login();
-    console.log('Logged in to Instagram');
+  app.listen(3003, () => {
+    console.log('Example app listening on port 3003!');
   });
